@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Context-Aware mcfunction Editor</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: monospace;
+    background-color: #1e1e1e;
+    color: white;
+  }
+
+  #topbar {
+    height: 40px;
+    background-color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  #topbar .left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #topbar .title {
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  #topbar button, #fileMenu {
+    background-color: #0e639c;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+
+  #fileMenu {
+    position: relative;
+    cursor: pointer;
+  }
+
+  #fileDropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #333;
+    min-width: 160px;
+    border: 1px solid #555;
+    z-index: 10;
+  }
+
+  #fileDropdown button {
+    background: none;
+    border: none;
+    color: white;
+    text-align: left;
+    padding: 8px 12px;
+    width: 100%;
+    cursor: pointer;
+  }
+
+  #fileDropdown button:hover {
+    background-color: #444;
+  }
+
+  /* Show File menu on hover */
+  #fileMenu:hover #fileDropdown {
+    display: block;
+  }
+
+  #helpMenu {
+    position: relative;
+    cursor: pointer;
+  }
+
+  #helpDropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #1e1e1e;
+    border: 1px solid #555;
+    min-width: 500px;
+    max-height: none; /* allow full height */
+    z-index: 20;
+    padding: 10px;
+    font-size: 12px;
+    white-space: pre-wrap;
+  }
+
+  /* Show Help menu on hover */
+  #helpMenu:hover #helpDropdown {
+    display: block;
+  }
+
+  #container, #outputPage {
+    height: calc(100% - 40px);
+    display: none;
+  }
+
+  #container.active, #outputPage.active {
+    display: block;
+  }
+
+  #outputPage {
+    display: flex;
+    flex-direction: column;
+    background-color: #1e1e1e;
+    padding: 10px;
+    gap: 5px;
+    box-sizing: border-box;
+  }
+
+  #outputBox {
+    flex: 1;
+    background-color: #252526;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 8px;
+    resize: none;
+    font-family: monospace;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-y: auto;
+    width: 90%;
+    height: 90%;
+  }
+
+  #outputButtons {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  #outputButtons button {
+    background-color: #0e639c;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+    transform: scale(0.7);
+  }
+
+  #outputButtons button:hover {
+    background-color: #1177bb;
+    transform: scale(0.69);
+  }
+
+  #outputList {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .commandRow {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .commandLabel {
+    width: 80px;
+    text-align: right;
+  }
+
+  .commandInput {
+    flex: 1;
+    background-color: #1e1e1e;
+    border: 1px solid #555;
+    color: white;
+    padding: 3px;
+    font-family: monospace;
+    font-size: 13px;
+  }
+
+  .commandCopyBtn {
+    background-color: #0e639c;
+    border: none;
+    color: white;
+    padding: 3px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  .commandCopyBtn:hover {
+    background-color: #1177bb;
+  }
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+  <div id="topbar">
+    <div class="left">
+      <div class="title">CMD ASM</div>
+
+      <div id="fileMenu" style="margin-left:10px;">
+        File ▾
+        <div id="fileDropdown">
+          <button id="loadFileBtn">Load from computer</button>
+          <button id="saveFileBtn">Save to computer</button>
+        </div>
+      </div>
+
+      <div id="helpMenu" style="margin-left:10px;">
+        Help ▾
+        <div id="helpDropdown">
+<pre>
+CMD ASM Cheat Sheet
+
+Headers:
+  .head SB_OBJ &lt;name&gt;         # runtime scoreboard objective
+  .head SB_PREFIX &lt;prefix&gt;    # optional scoreboard prefix
+  .head SB_SUFFIX &lt;suffix&gt;    # optional scoreboard suffix
+  .head STORAGE &lt;namespace&gt;   # required storage namespace
+  .head STORAGE_PATH &lt;path&gt;   # storage path
+  .head ENTITY &lt;uuid|RANDOM&gt;  # required entity
+  .head EVAL_ENTITY &lt;uuid&gt;    # entity for .eval
+
+Labels:
+  @label                      # define label
+
+Flow:
+  .jump &lt;label&gt; [condition]   # jump to label
+  .call &lt;label&gt;               # call label (use .ret to return)
+  .ret                        # return from .call
+  .sleep &lt;ticks&gt;              # wait ticks
+  .sleep (command)            # wait ticks returned from command
+  .eval '&lt;json&gt;'              # flatten JSON text into command
+
+Notes:
+  - Lines not starting with '.' are raw Minecraft commands
+  - Leading whitespace is allowed
+</pre>
+        </div>
+      </div>
+
+      <span id="currentFile" style="margin-left:10px; font-size:13px; color:#ccc;"></span>
+
+      <button id="convertBtn" style="margin-left:10px;">Convert</button>
+      <button id="backBtn" style="display:none;">Back</button>
+    </div>
+  </div>
+
+<input type="file" id="fileInput" style="display:none;" accept=".mcfunction,.txt,.cmdasm,.ca,.casm">
+
+  <div id="container" class="active"></div>
+
+  <div id="outputPage">
+    <div id="outputList"></div>
+  </div>
+
+  <script src="editor.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
